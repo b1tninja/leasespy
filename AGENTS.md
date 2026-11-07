@@ -25,11 +25,13 @@ and Windows, plus the suite under `python -O`.
 These are the points where a plausible-looking change makes the project wrong
 rather than merely incomplete.
 
-1. **Roadmap honesty.** Never change a `ROADMAP.md` row from `[ ]` to `[x]` unless
-   the test named in its `Evidence` cell exists and passes. `tests/test_roadmap_rows.py`
-   fails on any row that claims done without a named test, and that check is the
-   reason the roadmap can be trusted. Do not weaken it, skip it, or delete it to
-   get a green run.
+1. **Roadmap honesty.** Never change a `ROADMAP.md` row from `[ ]` to `[ok]` unless
+   the test named in its `Where` cell exists, passes, and would fail if the behaviour
+   regressed. A Where cell marked `(to be written)` names a test nobody has written:
+   write it, then drop the marker in the same commit that flips the row.
+   `tests/test_roadmap_rows.py` checks only that every row names a callable the
+   package defines; it cannot tell a passing test from a missing one, so this rule
+   is the check. Do not weaken that test, skip it, or delete it to get a green run.
 2. **No silent stubs.** Code that is not implemented raises `NotImplementedError`.
    Never return an empty value, an empty collection, or a result object that reports
    success. A protocol library that answers nothing is worse than one that refuses
@@ -46,8 +48,9 @@ rather than merely incomplete.
 
 ## Read before implementing
 
-- RFC 2131 carries 7 verified errata and is updated by RFC 3396, RFC 4361, RFC 5494 and RFC 6842. The errata change packet handling, so the codec is written against them, not the 1997 text alone.
+- RFC 2131 carries 7 verified errata, all Editorial (typos and alignment), so none changes packet handling. It is updated by RFC 3396 (long options), RFC 4361 (node-specific client identifiers), RFC 5494 and RFC 6842 (client identifier in server replies): the codec is written against those updates, not the 1997 text alone.
 - RFC 2132 carries 2 verified errata and 5 updates.
+- RFC 5007 carries 2 verified errata. 3763 (Technical) rewrites sec. 4.3.3 and sec. 4.3.4: a LEASEQUERY-REPLY whose OPTION_CLIENT_DATA has no OPTION_CLT_TIME is no longer discarded, and when sources conflict the reply carrying OPTION_CLT_TIME is preferred. Leasequery against a failover pair depends on it.
 - RFC 9915 carries 1 verified erratum and removes IA_TA plus server unicast: implementing RFC 8415 today builds the obsolete behaviour in.
 
 ## Protocol work

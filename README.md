@@ -54,8 +54,9 @@ document, which is the honest grain size for a plan. See [docs/rfc-map.md](docs/
 
 ### Errata watch
 
-- RFC 2131 carries 7 verified errata and is updated by RFC 3396, RFC 4361, RFC 5494 and RFC 6842. The errata change packet handling, so the codec is written against them, not the 1997 text alone.
+- RFC 2131 carries 7 verified errata, all Editorial (typos and alignment), so none changes packet handling. It is updated by RFC 3396 (long options), RFC 4361 (node-specific client identifiers), RFC 5494 and RFC 6842 (client identifier in server replies): the codec is written against those updates, not the 1997 text alone.
 - RFC 2132 carries 2 verified errata and 5 updates.
+- RFC 5007 carries 2 verified errata. 3763 (Technical) rewrites sec. 4.3.3 and sec. 4.3.4: a LEASEQUERY-REPLY whose OPTION_CLIENT_DATA has no OPTION_CLT_TIME is no longer discarded, and when sources conflict the reply carrying OPTION_CLT_TIME is preferred. Leasequery against a failover pair depends on it.
 - RFC 9915 carries 1 verified erratum and removes IA_TA plus server unicast: implementing RFC 8415 today builds the obsolete behaviour in.
 
 ## Module layout
@@ -83,7 +84,8 @@ document, which is the honest grain size for a plan. See [docs/rfc-map.md](docs/
 ## Install
 
 ```bash
-git clone https://github.com/b1tninja/leasespy.cd leasespy
+git clone https://github.com/b1tninja/leasespy.git
+cd leasespy
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\\Scripts\\Activate.ps1
 pip install -e ".[dev]"

@@ -11,28 +11,32 @@ behaviour regressed. Reading the code and agreeing with it is not enough. That i
 Legend: `[ok]` implemented and pinned by a named test -- `[part]` partial, with what is
 missing stated -- `[ ]` not implemented -- `[no]` deliberate non-goal.
 
+A Where cell marked `(to be written)` names the test that will pin the row once it exists; no
+such test has been written yet, and the row cannot leave `[ ]` until it has. The Milestone
+column places the row on the ladder in section 2, and `-` means it is not placed yet.
+
 Update the affected row in the same commit that changes the behaviour. A row and its test
 drift apart within one release, and the document becomes useless exactly when it is needed.
 
 ## 1. Obligations
 
-| Obligation | Spec | Status | Where |
-|---|---|---|---|
-| `wire.decode_v6()` | RFC 9915 sec. 8 | `[ ]` | `tests/test_obligations.py::decode_v6` |
-| `wire.encode_v6()` | RFC 9915 sec. 8 | `[ ]` | `tests/test_obligations.py::encode_v6` |
-| `wire.decode_v4()` | RFC 2131 | `[ ]` | `tests/test_obligations.py::decode_v4` |
-| `options.encode_option()` | RFC 2132, RFC 9915 sec. 21 | `[ ]` | `tests/test_obligations.py::encode_option` |
-| `options.decode_options()` | RFC 9915 sec. 21 | `[ ]` | `tests/test_obligations.py::decode_options` |
-| `duid.parse_duid()` | RFC 9915 sec. 11 | `[ ]` | `tests/test_obligations.py::parse_duid` |
-| `fsm.client_step()` | RFC 9915 sec. 18 | `[ ]` | `tests/test_obligations.py::client_step` |
-| `validate.check_message()` | RFC 9915 sec. 16 | `[ ]` | `tests/test_obligations.py::check_message` |
-| `relay.wrap_relay_forward()` | RFC 9915 sec. 9 | `[ ]` | `tests/test_obligations.py::wrap_relay_forward` |
-| `leasequery.build_query()` | RFC 5007 | `[ ]` | `tests/test_obligations.py::build_query` |
-| `failover.peer_transition()` | RFC 8156 | `[ ]` | `tests/test_obligations.py::peer_transition` |
+| Obligation | Spec | Status | Where | Milestone |
+|---|---|---|---|---|
+| `wire.decode_v6()` | RFC 9915 sec. 8 | `[ ]` | `tests/test_obligations.py::test_decode_v6` (to be written) | M1 |
+| `wire.encode_v6()` | RFC 9915 sec. 8 | `[ ]` | `tests/test_obligations.py::test_encode_v6` (to be written) | M1 |
+| `wire.decode_v4()` | RFC 2131 | `[ ]` | `tests/test_obligations.py::test_decode_v4` (to be written) | M1 |
+| `options.encode_option()` | RFC 2132, RFC 9915 sec. 21 | `[ ]` | `tests/test_obligations.py::test_encode_option` (to be written) | M1 |
+| `options.decode_options()` | RFC 9915 sec. 21 | `[ ]` | `tests/test_obligations.py::test_decode_options` (to be written) | M1 |
+| `duid.parse_duid()` | RFC 9915 sec. 11 | `[ ]` | `tests/test_obligations.py::test_parse_duid` (to be written) | M3 |
+| `fsm.client_step()` | RFC 9915 sec. 18 | `[ ]` | `tests/test_obligations.py::test_client_step` (to be written) | M2 |
+| `validate.check_message()` | RFC 9915 sec. 16 | `[ ]` | `tests/test_obligations.py::test_check_message` (to be written) | M1 |
+| `relay.wrap_relay_forward()` | RFC 9915 sec. 9 | `[ ]` | `tests/test_obligations.py::test_wrap_relay_forward` (to be written) | M4 |
+| `leasequery.build_query()` | RFC 5007 | `[ ]` | `tests/test_obligations.py::test_build_query` (to be written) | M5 |
+| `failover.peer_transition()` | RFC 8156 | `[ ]` | `tests/test_obligations.py::test_peer_transition` (to be written) | M6 |
 
 ## 2. Milestones
 
-- M1 wire codec and option registry for both families, with RFC 2131 errata applied
+- M1 wire codec and option registry for both families, with the RFC 2131 updates applied
 - M2 sans-IO client state machines on a virtual clock, including RFC 9915 retransmission
 - M3 server allocation for addresses and prefixes, DUID stability included
 - M4 relay with option 82 and RFC 6422, verified against a real relay
@@ -44,8 +48,9 @@ the code existing. Coverage in `pyproject.toml` ratchets in the same commit.
 
 ## 3. Errata watch
 
-- RFC 2131 carries 7 verified errata and is updated by RFC 3396, RFC 4361, RFC 5494 and RFC 6842. The errata change packet handling, so the codec is written against them, not the 1997 text alone.
+- RFC 2131 carries 7 verified errata, all Editorial (typos and alignment), so none changes packet handling. It is updated by RFC 3396 (long options), RFC 4361 (node-specific client identifiers), RFC 5494 and RFC 6842 (client identifier in server replies): the codec is written against those updates, not the 1997 text alone.
 - RFC 2132 carries 2 verified errata and 5 updates.
+- RFC 5007 carries 2 verified errata. 3763 (Technical) rewrites sec. 4.3.3 and sec. 4.3.4: a LEASEQUERY-REPLY whose OPTION_CLIENT_DATA has no OPTION_CLT_TIME is no longer discarded, and when sources conflict the reply carrying OPTION_CLT_TIME is preferred. Leasequery against a failover pair depends on it.
 - RFC 9915 carries 1 verified erratum and removes IA_TA plus server unicast: implementing RFC 8415 today builds the obsolete behaviour in.
 
 ## 4. Deliberate non-goals
