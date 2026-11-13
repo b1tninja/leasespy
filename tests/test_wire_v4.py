@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import random
 import struct
+from dataclasses import replace
 
 import pytest
 
@@ -153,3 +154,81 @@ def test_fuzz_seeded_never_other_exception() -> None:
         cut = rng.randrange(len(blob) + 1)
         with contextlib.suppress(DhcpError):
             decode_message4(bytes(blob[:cut]))
+
+
+def _bulky(*sizes: int) -> DhcpMessage4:
+    """A discover with extra options whose data are ``sizes`` octets each (codes 100, 101, ...)."""
+    extra = tuple(Option4(100 + n, bytes([n + 1]) * size) for n, size in enumerate(sizes))
+    return replace(_discover(), options=_discover().options + extra)
+
+
+def _without_overload(message: DhcpMessage4) -> tuple[Option4, ...]:
+    return tuple(o for o in message.options if o.code != 52)
+
+
+def test_encode_overloads_file_and_sname_when_the_options_field_is_full() -> None:
+    """RFC 2132 section 9.3 and RFC 3396 sections 5 and 6: spill into file, then sname."""
+    message = _bulky(100, 100)  # 12 + 2 x 102 octets, over the 150-octet field below
+    raw = encode_message4(message, options_limit=150)
+    decoded = decode_message4(raw)
+    assert decoded.option(52) == b"\x01"  # only the file field was needed
+    assert {o.code: o.data for o in _without_overload(decoded)} == {
+        o.code: o.data for o in message.options
+    }
+    field = raw[236 + 4 :]
+    assert len(field) <= 150  # the options field kept to its limit
+    assert raw[44 + 64 : 44 + 64 + 3] != bytes(3)  # file (offset 108) holds options
+    assert raw[44 : 44 + 64] == bytes(64)  # sname untouched
+    assert len(raw) == 236 + 4 + len(field)
+
+
+def test_overload_uses_sname_after_file_and_says_so_with_value_3() -> None:
+    message = _bulky(120, 60, 55)  # 12 + 122 + 62 + 57 octets: file, sname, and a split option
+    raw = encode_message4(message, options_limit=70)
+    decoded = decode_message4(raw)
+    assert decoded.option(52) == b"\x03"
+    assert decoded.file == b""
+    assert decoded.sname == b""  # both fields are option storage, so neither is a string
+    assert {o.code: o.data for o in _without_overload(decoded)} == {
+        o.code: o.data for o in message.options
+    }
+
+
+def test_a_message_that_fits_is_not_overloaded_and_option_52_is_never_added() -> None:
+    raw = encode_message4(_discover(), options_limit=312)
+    assert decode_message4(raw).option(52) is None
+    assert raw == encode_message4(_discover())
+
+
+def test_a_string_in_file_keeps_file_out_of_the_options() -> None:
+    message = replace(_bulky(100, 40), file=b"boot.img")
+    raw = encode_message4(message, options_limit=150)
+    decoded = decode_message4(raw)
+    assert decoded.option(52) == b"\x02"  # sname only; file stays the boot file name
+    assert decoded.file == b"boot.img"
+
+
+def test_an_option_that_fits_no_field_whole_is_split_with_the_same_code_in_order() -> None:
+    """RFC 3396 section 6 paragraphs 2 to 4: parts of one option, in buffer order."""
+    data = bytes(range(200))
+    message = replace(_discover(), options=(Option4(53, b"\x01"), Option4(77, data)))
+    raw = encode_message4(message, options_limit=100)
+    decoded = decode_message4(raw)
+    assert decoded.option(77) == data  # joined options, file, sname in that order
+    assert decoded.option(52) in (b"\x01", b"\x03")
+
+
+def test_overload_refuses_what_cannot_fit_and_option_52_supplied_by_the_caller() -> None:
+    with pytest.raises(DhcpError, match="do not fit"):
+        encode_message4(_bulky(250, 250, 250), options_limit=100)
+    supplied = replace(_discover(), options=(Option4(52, b"\x01"),))
+    with pytest.raises(DhcpError, match="option 52"):
+        encode_message4(supplied, options_limit=100)
+    with pytest.raises(DhcpError, match="options_limit"):
+        encode_message4(_discover(), options_limit=1)
+
+
+def test_overloaded_buffers_each_end_with_the_end_option() -> None:
+    raw = encode_message4(_bulky(100, 100), options_limit=150)
+    file_field = raw[44 + 64 : 44 + 64 + 128]
+    assert 255 in file_field  # RFC 2132 section 3.2: the field ends its options with End

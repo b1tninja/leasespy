@@ -7,8 +7,9 @@ its vendor field kept raw, so a caller can tell the two apart and nothing is gue
 The option overload of RFC 2132 section 9.3 is read here: when option 52 says so, ``file`` and
 ``sname`` hold options and are read after the options field, in the order of RFC 3396 section 5
 (options, file, sname). A message that overloads a field returns that field empty, because its
-octets are options and not a string. Encoding never overloads: every option goes in the options
-field, split where RFC 3396 section 6 requires. Overload on encode is an open row.
+octets are options and not a string. Encoding puts every option in the options field, split where
+RFC 3396 section 6 requires, unless the caller gives ``options_limit``: then options that do not
+fit spill into ``file`` and ``sname`` and option 52 says so (RFC 2132 section 9.3).
 
 Nothing here applies the discard rules of RFC 2131 section 4.3 or RFC 6842 section 3 paragraph 4;
 those belong to a state machine.
@@ -23,6 +24,7 @@ from dataclasses import dataclass
 from .errors import DhcpError
 from .options4 import (
     MAGIC_COOKIE,
+    OPTION_END,
     OPTION_MESSAGE_TYPE,
     OPTION_OVERLOAD,
     Option4,
@@ -46,6 +48,7 @@ BOOTREPLY = 2
 BROADCAST_FLAG = 0x8000  # RFC 2131 section 2, Figure 2: the leftmost bit
 _FIXED = struct.Struct("!BBBBIHH4s4s4s4s16s64s128s")
 _OVERLOAD_FILE, _OVERLOAD_SNAME = 1, 2
+_MAX_PART = 255
 
 
 class DhcpMessageType(enum.IntEnum):
@@ -169,8 +172,91 @@ def decode_message4(raw: bytes) -> DhcpMessage4:
     )  # fmt: skip
 
 
-def encode_message4(message: DhcpMessage4) -> bytes:
-    """Encode a message, options in the options field only, split per RFC 3396 section 6."""
+def _cost(data: bytes) -> int:
+    """Octets one option takes whole: a 2-octet header per part of at most 255 octets."""
+    return len(data) + 2 * max(1, -(-len(data) // _MAX_PART))
+
+
+def _pack(options: tuple[Option4, ...], capacities: list[int]) -> list[bytearray] | None:
+    """Place options in buffers of the given capacities (End excluded), or None if they do not fit.
+
+    An option goes whole into the first buffer with room (first fit). One that fits nowhere whole
+    is split on an octet boundary across the buffers in the aggregate order of RFC 3396 section 5
+    paragraph 4, every part carrying the same code, none above 255 octets and none crossing a
+    boundary (section 5 paragraph 6, section 6 paragraphs 2 to 4). Splitting is the last resort:
+    section 4 paragraph 5 says to split only when there is no choice.
+    """
+    buffers = [bytearray() for _ in capacities]
+    for option in options:
+        if not 1 <= option.code <= 254:
+            raise DhcpError(f"option code {option.code} cannot be encoded (0 is Pad, 255 is End)")
+        data = bytes(option.data)
+        cost = _cost(data)
+        for buffer, capacity in zip(buffers, capacities, strict=True):
+            if len(buffer) + cost <= capacity:
+                buffer += encode_options4([option], end=False)
+                break
+        else:
+            rest = data
+            for buffer, capacity in zip(buffers, capacities, strict=True):
+                while rest and capacity - len(buffer) >= 3:
+                    take = min(_MAX_PART, capacity - len(buffer) - 2, len(rest))
+                    buffer += bytes((option.code, take)) + rest[:take]
+                    rest = rest[take:]
+            if rest or not data:
+                return None
+    return buffers
+
+
+def _options_area(message: DhcpMessage4, options_limit: int) -> tuple[bytes, bytes, bytes]:
+    """The options field, ``file`` and ``sname`` octets for a message under ``options_limit``."""
+    if options_limit < 2:
+        raise DhcpError("options_limit must leave room for at least one option and End")
+    if any(option.code == OPTION_OVERLOAD for option in message.options):
+        raise DhcpError("option 52 is set by the encoder when it overloads; do not supply it")
+    whole = _pack(message.options, [options_limit - 1])
+    if whole is not None:
+        return bytes(whole[0]) + bytes((OPTION_END,)), message.file, message.sname
+    # RFC 2131 section 4.1 and RFC 2132 section 9.3: only a field the message does not use as a
+    # string can hold options. Tried in order: file, sname, both (values 1, 2, 3).
+    free = [(_OVERLOAD_FILE, 127), (_OVERLOAD_SNAME, 63)]
+    free = [
+        (bit, cap)
+        for bit, cap in free
+        if not (message.file if bit == _OVERLOAD_FILE else message.sname)
+    ]
+    choices = [[entry] for entry in free] + ([free] if len(free) == 2 else [])
+    for chosen in choices:
+        value = sum(bit for bit, _ in chosen)
+        capacities = [options_limit - 1 - 3] + [cap for _, cap in chosen]
+        if capacities[0] < 0:
+            continue
+        buffers = _pack(message.options, capacities)
+        if buffers is None:
+            continue
+        first = bytes((OPTION_OVERLOAD, 1, value)) + bytes(buffers[0]) + bytes((OPTION_END,))
+        extra = {
+            bit: bytes(buf) + bytes((OPTION_END,))
+            for (bit, _), buf in zip(chosen, buffers[1:], strict=True)
+        }
+        return (
+            first,
+            extra.get(_OVERLOAD_FILE, message.file),
+            extra.get(_OVERLOAD_SNAME, message.sname),
+        )
+    raise DhcpError(f"the options do not fit in {options_limit} octets, even overloaded")
+
+
+def encode_message4(message: DhcpMessage4, *, options_limit: int | None = None) -> bytes:
+    """Encode a message; options go in the options field, split per RFC 3396 section 6.
+
+    ``options_limit`` is the number of octets the options field may take after the magic cookie.
+    The caller derives it from the link or from option 57, because RFC 2132 section 9.10 does not
+    say whether the 28 octets of IP and UDP header count toward the "maximum length DHCP message".
+    When the options do not fit, they spill into ``file`` and then ``sname`` and option 52 is
+    added (RFC 2132 section 9.3, RFC 3396 section 5), but only into a field the message does not
+    already use for a string. A message that cannot fit even so raises :class:`DhcpError`.
+    """
     if message.op not in (BOOTREQUEST, BOOTREPLY):
         raise DhcpError("op must be 1 or 2")
     for name in ("ciaddr", "yiaddr", "siaddr", "giaddr"):
@@ -189,12 +275,15 @@ def encode_message4(message: DhcpMessage4) -> bytes:
     ):
         if not 0 <= value <= limit:
             raise DhcpError(f"{name} {value} out of range")
+    if options_limit is None or not message.has_cookie:
+        options, file, sname = encode_options4(message.options), message.file, message.sname
+    else:
+        options, file, sname = _options_area(message, options_limit)
     head = _FIXED.pack(
         message.op, message.htype, len(message.chaddr), message.hops, message.xid, message.secs,
         message.flags, message.ciaddr, message.yiaddr, message.siaddr, message.giaddr,
-        message.chaddr.ljust(16, b"\x00"), message.sname.ljust(64, b"\x00"),
-        message.file.ljust(128, b"\x00"),
+        message.chaddr.ljust(16, b"\x00"), sname.ljust(64, b"\x00"), file.ljust(128, b"\x00"),
     )  # fmt: skip
     if not message.has_cookie:
         return head + message.vendor
-    return head + MAGIC_COOKIE + encode_options4(message.options)
+    return head + MAGIC_COOKIE + options
