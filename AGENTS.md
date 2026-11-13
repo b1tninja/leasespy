@@ -56,17 +56,22 @@ rather than merely incomplete.
    the obligation is wrong: fix the roadmap row and say so in the commit.
 4. **Dependencies.** `pyproject.toml` here declares no runtime dependencies. Adding a runtime
    dependency needs a paragraph of justification in `docs/strategy.md` explaining
-   why the standard library is not enough.
-5. **Scope.** What is deliberately absent is listed under Non-goals in `README.md`.
+   why the standard library is not enough. The workspace rule (2026-11-13): standard library only,
+   except that the `cryptography` package may supply cryptographic primitives; every wire format,
+   option codec and DUID handler is written here.
+5. **DUIDs are opaque.** RFC 9915 sec. 11 says a DUID is only compared for equality and that an
+   implementation MUST NOT restrict DUIDs to the known types. `Duid.describe()` is a diagnostic view
+   for logs; no code path may branch on it or reject a DUID because of its type.
+6. **Scope.** What is deliberately absent is listed under Non-goals in `README.md`.
    An agent that "helpfully" implements a non-goal has expanded the API surface that
    has to be supported forever.
 
 ## Read before implementing
 
-- RFC 2131 carries 7 verified errata, all Editorial (typos and alignment), so none changes packet handling. It is updated by RFC 3396 (long options), RFC 4361 (node-specific client identifiers), RFC 5494 and RFC 6842 (client identifier in server replies): the codec is written against those updates, not the 1997 text alone.
+- RFC 2131 carries 7 verified errata, all Editorial (typos and alignment), so none changes packet handling. It is updated by RFC 3396 (long options), RFC 4361 (node-specific client identifiers), RFC 5494 (ARP hardware-type allocation) and RFC 6842 (client identifier in server replies): the codec is written against those updates, not the 1997 text alone.
 - RFC 2132 carries 2 verified errata and 5 updates.
-- RFC 5007 carries 2 verified errata. 3763 (Technical) rewrites sec. 4.3.3 and sec. 4.3.4: a LEASEQUERY-REPLY whose OPTION_CLIENT_DATA has no OPTION_CLT_TIME is no longer discarded, and when sources conflict the reply carrying OPTION_CLT_TIME is preferred. Leasequery against a failover pair depends on it.
-- RFC 9915 carries 1 verified erratum and removes IA_TA plus server unicast: implementing RFC 8415 today builds the obsolete behaviour in.
+- RFC 5007 carries 2 verified errata. Erratum 3763 (Technical; an erratum id on RFC 5007, not an RFC number) rewrites sec. 4.3.3 and sec. 4.3.4: a LEASEQUERY-REPLY whose OPTION_CLIENT_DATA has no OPTION_CLT_TIME is no longer discarded, and when sources conflict the reply carrying OPTION_CLT_TIME is preferred. Leasequery against a failover pair depends on it.
+- RFC 9915 carries 1 verified erratum (8821, Editorial, sec. 18.2.7) and removes IA_TA plus server unicast: implementing RFC 8415 today builds the obsolete behaviour in.
 
 ## Protocol work
 

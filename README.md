@@ -5,9 +5,10 @@
      the badges stay commented out until the tag exists.
 -->
 
-**Pre-alpha shell.** The package surface, the obligation matrix and the CI gates exist.
-No protocol behaviour is implemented: every public function raises `NotImplementedError`,
-and the test suite records that rather than hiding it. Read
+**Pre-alpha.** The DHCPv6 first pass exists: option framing and IA_NA, message headers
+and relay nesting, the opaque DUID value type, the RFC 9915 sec. 16 validation table and the
+sec. 15 retransmission schedule, each pinned by a named test. Everything else, including all of
+DHCPv4, still raises `NotImplementedError`, and the test suite records that rather than hiding it. Read
 [ROADMAP.md](ROADMAP.md) before depending on any of it.
 
 leasespy -- DHCP clients, servers and relays on asyncio
@@ -29,7 +30,7 @@ which is why the table below carries dates instead of adjectives.
 
 What this project intends to add:
 
-- DHCPv6 written to RFC 9915 from the first commit, with IA_TA and server unicast absent by construction
+- DHCPv6 written to RFC 9915 from the first commit, with IA_TA and server unicast treated as unknown options, which RFC 9915 sec. 21.5 and sec. 21.12 say a receiver ignores
 - a sans-IO state machine per RFC 2131 and RFC 9915 sec. 14 through sec. 18, testable on a virtual clock
 - relay agent with option 82 and RFC 6422 relay-supplied options, which is where real deployments break
 - leasequery and active leasequery so a monitoring system can read a live server
@@ -54,10 +55,10 @@ document, which is the honest grain size for a plan. See [docs/rfc-map.md](docs/
 
 ### Errata watch
 
-- RFC 2131 carries 7 verified errata, all Editorial (typos and alignment), so none changes packet handling. It is updated by RFC 3396 (long options), RFC 4361 (node-specific client identifiers), RFC 5494 and RFC 6842 (client identifier in server replies): the codec is written against those updates, not the 1997 text alone.
+- RFC 2131 carries 7 verified errata, all Editorial (typos and alignment), so none changes packet handling. It is updated by RFC 3396 (long options), RFC 4361 (node-specific client identifiers), RFC 5494 (IANA allocation guidelines for ARP, which govern the hardware-type values in `htype`, DUID-LLT and DUID-LL) and RFC 6842 (client identifier in server replies): the codec is written against those updates, not the 1997 text alone. Correction, 2026-11-13: this line used to credit RFC 5494 with the client identifier in server replies. Only RFC 6842 is about that.
 - RFC 2132 carries 2 verified errata and 5 updates.
-- RFC 5007 carries 2 verified errata. 3763 (Technical) rewrites sec. 4.3.3 and sec. 4.3.4: a LEASEQUERY-REPLY whose OPTION_CLIENT_DATA has no OPTION_CLT_TIME is no longer discarded, and when sources conflict the reply carrying OPTION_CLT_TIME is preferred. Leasequery against a failover pair depends on it.
-- RFC 9915 carries 1 verified erratum and removes IA_TA plus server unicast: implementing RFC 8415 today builds the obsolete behaviour in.
+- RFC 5007 carries 2 verified errata. Erratum 3763 (Technical; an erratum id on RFC 5007, not an RFC number) rewrites sec. 4.3.3 and sec. 4.3.4: a LEASEQUERY-REPLY whose OPTION_CLIENT_DATA has no OPTION_CLT_TIME is no longer discarded, and when sources conflict the reply carrying OPTION_CLT_TIME is preferred. Leasequery against a failover pair depends on it. Erratum 4816 (Editorial): the text says OPTION_CLIENT_LINK where the registry name is OPTION_LQ_CLIENT_LINK (option 48), so a decoder takes the registry name.
+- RFC 9915 carries 1 verified erratum (8821, Editorial, sec. 18.2.7: the text says Renew where Release is meant) and removes IA_TA plus server unicast: implementing RFC 8415 today builds the obsolete behaviour in.
 
 ## Module layout
 
@@ -73,6 +74,11 @@ document, which is the honest grain size for a plan. See [docs/rfc-map.md](docs/
 | `leasequery` | query and active query (RFC 5007, RFC 7653) |
 | `failover` | peer protocol and states (RFC 8156) |
 | `clock` | sans-IO timers so every timeout is testable without sleeping |
+
+## Dependencies
+
+None at runtime: the standard library only. The `cryptography` package may supply cryptographic
+primitives if a later row needs one (authentication, sec. 20.4); every wire format is written here.
 
 ## What it does not do
 
