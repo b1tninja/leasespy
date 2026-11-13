@@ -1,6 +1,6 @@
 """DHCPv4 and DHCPv6 message formats (RFC 2131, RFC 9915 sec. 8, sec. 9).
 
-DHCPv6 headers are implemented; DHCPv4 (:func:`decode_v4`) is not and still raises.
+DHCPv6 headers and the DHCPv4 message (:func:`decode_v4`, :func:`encode_v4`, in :mod:`leasespy.wire4`).
 
 The codec does not apply the sec. 16 discard rules. An unknown message type is returned as
 :class:`UnknownMessage` so :mod:`leasespy.validate` can make the discard decision.
@@ -11,15 +11,10 @@ from __future__ import annotations
 import enum
 import struct
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from .errors import DhcpError
 from .options import OPTION_RELAY_MSG, Option, decode_options, encode_options
-
-if TYPE_CHECKING:
-    from typing import Any
-
-    Bootp = Any  # placeholder: give it a real type in the milestone that needs it
+from .wire4 import DhcpMessage4, decode_message4, encode_message4
 
 __all__ = [
     "ClientServerMessage",
@@ -29,6 +24,7 @@ __all__ = [
     "UnknownMessage",
     "decode_v4",
     "decode_v6",
+    "encode_v4",
     "encode_v6",
     "unwrap_relays",
 ]
@@ -170,10 +166,15 @@ def unwrap_relays(raw: bytes, *, max_depth: int = 32) -> tuple[tuple[RelayMessag
     return tuple(layers), current
 
 
-def decode_v4(raw: bytes) -> Bootp:
-    """Pending behaviour defined by RFC 2131.
+def decode_v4(raw: bytes) -> DhcpMessage4:
+    """Decode a DHCPv4 or BOOTP message (RFC 2131 section 2, RFC 2132, RFC 3396).
 
-    Not implemented yet. See the ``wire.decode_v4()`` row in ROADMAP.md; this stub raises
-    on purpose so nothing downstream mistakes it for working code.
+    See :func:`leasespy.wire4.decode_message4`. Options are aggregated per RFC 3396 and the
+    option overload of RFC 2132 section 9.3 is read; raises :class:`DhcpError` and nothing else.
     """
-    raise NotImplementedError("decode_v4() is not implemented: RFC 2131")
+    return decode_message4(raw)
+
+
+def encode_v4(message: DhcpMessage4) -> bytes:
+    """Encode a DHCPv4 message (RFC 2131 section 2), long options split per RFC 3396."""
+    return encode_message4(message)

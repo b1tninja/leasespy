@@ -27,7 +27,7 @@ from .leasequery import build_query
 from .options import decode_options, encode_option
 from .relay import wrap_relay_forward
 from .validate import check_message
-from .wire import decode_v4, decode_v6, encode_v6
+from .wire import decode_v4, decode_v6, encode_v4, encode_v6
 
 __version__ = "0.1.0"
 
@@ -44,6 +44,7 @@ __all__ = [
     "decode_v6",
     "duid",
     "encode_option",
+    "encode_v4",
     "encode_v6",
     "failover",
     "fsm",

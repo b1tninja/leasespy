@@ -4,6 +4,11 @@ The format follows Keep a Changelog, and this project adheres to Semantic Versio
 
 ## Unreleased
 
+- DHCPv4: the message codec (`wire.decode_v4`, `encode_v4`, `leasespy.wire4`), option framing with
+  RFC 3396 aggregation and splitting, option overload on decode, the RFC 4361 client identifier
+  (`leasespy.options4`), a generated IANA option and message-type table with provenance
+  (`leasespy._iana_dhcp`, `tools/gen_iana_dhcp.py`), and a sans-IO client state machine
+  (`leasespy.client4`). Coverage floor raised to 90.
 - DHCPv6 first pass: option framing and IA_NA (`options`), client/server and relay message headers
   with bounded relay unwrapping (`wire`), the opaque `Duid` value type with a diagnostic view
   (`duid`), the RFC 9915 sec. 16 validation table (`validate`) and the sec. 15 retransmission
