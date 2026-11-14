@@ -23,6 +23,9 @@
 | RFC 7227 | BCP 187, updates RFC 3315 (guidelines for new DHCPv6 options) | 2014-05 | 2026-11-13 |
 | RFC 7844 | Proposed Standard (anonymity profiles; cited by RFC 9915 sec. 11) | 2016-05 | 2026-11-13 |
 | RFC 6355 | Proposed Standard (DUID-UUID) | 2011-08 | 2026-11-13 |
+| RFC 5227 | Proposed Standard, updates RFC 826 (IPv4 address conflict detection; the ARP probe); erratum 8077 rejected | 2008-07 | 2026-11-13 |
+| RFC 826 | Internet Standard (STD 37), updated by RFC 5227 and RFC 5494 (ARP packet layout); errata 7909 verified (editorial), 7630 rejected, 9017 and 9092 reported | 1982-11 | 2026-11-13 |
+| RFC 894 | Internet Standard (STD 41), IP over Ethernet: the Ethernet type 0x0800 | 1984-04 | 2026-11-13 |
 | RFC 8415 | OBSOLETE, obsoleted by RFC 9915 | 2018-11 | 2026-11-13 |
 | RFC 3315 | OBSOLETE, obsoleted by RFC 8415, which RFC 9915 obsoletes in turn | 2003-07 | 2026-11-13 |
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from . import (
     apps,
+    arp,
     cli,
     clock,
     duid,
@@ -34,6 +35,7 @@ __version__ = "0.1.0"
 __all__ = [
     "__version__",
     "apps",
+    "arp",
     "build_query",
     "check_message",
     "cli",
